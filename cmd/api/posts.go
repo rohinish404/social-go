@@ -64,7 +64,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	post.Comments = comments
 
-	if err := app.jsonResponse(w, http.StatusCreated, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -126,6 +126,43 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	  if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 	  }
+}
+
+type CreateCommentPayload struct {
+	Content string `json:"content" validate:"required,max=200"`
+}
+
+func (app *application) addCommentsHandler(w http.ResponseWriter, r *http.Request){
+	post := getPostFromCtx(r)
+
+	var payload CreateCommentPayload
+
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return 
+	}
+
+	if err := Validate.Struct(payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	comment := &store.Comment{
+		UserID: 1,
+		Content: payload.Content,
+		PostID: post.ID,
+	}
+
+	ctx := r.Context()
+
+	if err := app.store.Comments.Create(ctx, comment); err != nil {
+		app.internalServerError(w, r, err)
+		return 
+	}
+	if err := app.jsonResponse(w, http.StatusCreated, comment); err!=nil {
+		app.internalServerError(w, r, err)
+		return 
+	}
 }
 
 func (app *application) postsContextMiddleware(next http.Handler) http.Handler {
